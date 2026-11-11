@@ -155,7 +155,7 @@ function fillValues(route, values) {
 async function runEngine(request) {
   if (fromFile) throw new Error("Start the site with python website/serve.py, then open http://127.0.0.1:8000.");
   if (hosted) {
-    browserWorker ??= new Worker("engine-worker.js?v=20261111-3");
+    browserWorker ??= new Worker("engine-worker.js?v=20261111-4");
     const worker = browserWorker;
     const id = ++browserRequest;
     return new Promise((resolve, reject) => {

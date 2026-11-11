@@ -10,12 +10,13 @@ async function startEngine() {
     "thermodynamic_feasibility_tester_MASTER.py", "run_mock_assignments.py", "scenario_input.py",
     "website/__init__.py", "website/local_scenarios.py", "website/dist/__init__.py", "website/dist/solver.py",
   ];
-  python.FS.mkdirTree("website/dist");
+  const sourceRoot = "/home/pyodide/";
+  python.FS.mkdirTree(sourceRoot + "website/dist");
   phase = "source loading";
   await Promise.all(modules.map(async (path) => {
     const response = await fetch("./python/" + path);
     if (!response.ok) throw new Error("Python source failed to load.");
-    python.FS.writeFile(path, await response.text());
+    python.FS.writeFile(sourceRoot + path, await response.text());
   }));
   phase = "solver import";
   python.runPython("from website.dist.solver import solve_json");
