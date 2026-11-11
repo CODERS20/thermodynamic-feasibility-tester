@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Test a useful-work claim against the laws of thermodynamics with the CL 202 Python engine.">
+  <title>ThermoLab | Feasibility Workbench</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="app.js?v=automatic-local-2"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#" aria-label="ThermoLab home"><span class="mark">◈</span>Thermo<span>Lab</span></a>
+    <nav aria-label="Main navigation"><a href="#workbench">Workbench</a><a href="#examples">Examples</a><a href="#method">Method</a></nav>
+    <span class="course">CL 202</span>
+  </header>
+  <main>
+    <section class="hero" aria-labelledby="title">
+      <div class="hero-copy"><p class="eyebrow"><span></span> CHEMICAL ENGINEERING THERMODYNAMICS</p>
+        <h1 id="title">Could it <em>work?</em></h1>
+        <p>Describe an energy conversion idea. Find its thermodynamic ceiling, check the balances, and see how the claim compares.</p>
+        <a class="hero-link" href="#workbench">Open the workbench <span aria-hidden="true">↘</span></a>
+      </div>
+      <figure class="hero-figure" aria-label="Concept diagram showing an ideal upper power limit above a claimed output">
+        <svg viewBox="0 0 420 200" role="img" aria-label="Illustrative power limit chart">
+          <defs><pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#94acc1" stroke-opacity=".20"/></pattern>
+          <linearGradient id="area" x2="0" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#ffad76" stop-opacity=".32"/><stop offset="1" stop-color="#ffad76" stop-opacity="0"/></linearGradient></defs>
+          <rect x="25" y="16" width="360" height="147" fill="url(#grid)"/><path d="M25 16v147h360" fill="none" stroke="#7491a9"/>
+          <path d="M25 146C86 138 102 103 157 95S230 72 278 52 340 40 385 27V163H25Z" fill="url(#area)"/>
+          <path d="M25 146C86 138 102 103 157 95S230 72 278 52 340 40 385 27" fill="none" stroke="#ffad76" stroke-width="3"/>
+          <path d="M25 139h360" fill="none" stroke="#bbcee0" stroke-dasharray="5 6"/>
+          <circle cx="278" cy="52" r="5" fill="#ffad76"/><text x="233" y="27" fill="#ffc6a1">IDEAL LIMIT</text><text x="269" y="129" fill="#c8d9e9">CLAIMED OUTPUT</text>
+          <text x="25" y="187" fill="#b4c9db">ILLUSTRATIVE RESOURCE CURVE</text>
+        </svg>
+      </figure>
+    </section>
+
+    <section id="workbench" class="section" aria-labelledby="work-title">
+      <div class="section-intro"><p class="eyebrow">01 / ANALYZE</p><h2 id="work-title">Feasibility workbench</h2><p>Start with a description or enter the quantities for a known model.</p></div>
+      <div class="work-grid">
+        <div class="panel input-panel">
+          <div class="modes" aria-label="Input method"><button type="button" id="text-tab" aria-pressed="true">Describe a scenario</button><button type="button" id="model-tab" aria-pressed="false">Enter model inputs</button></div>
+          <form id="text-form">
+            <label for="scenario">What are you testing?</label>
+            <textarea id="scenario" rows="5" maxlength="3000" required placeholder="Can I generate electricity by walking?"></textarea>
+            <div class="form-note" id="provider-note">Include the temperatures, flow rates, heat capacities and claimed output. Complete supported scenarios run directly to a verdict. Extracted values and calculation code are shown with the result.</div>
+            <div class="actions"><button class="primary" id="analyze-button" type="submit" disabled>Analyze scenario <span aria-hidden="true">→</span></button><button class="quiet" id="reset" type="button">Clear</button></div>
+            <p class="form-note" id="interface-loading">Starting the interface… If this message stays, open the site through the local Python server.</p>
+          </form>
+          <form id="model-form" hidden>
+            <label for="model">Thermodynamic model</label><select id="model"></select>
+            <div id="fields" class="fields"></div>
+            <p class="form-note" id="model-note"></p>
+            <button class="primary" type="submit">Calculate result <span aria-hidden="true">→</span></button>
+          </form>
+        </div>
+        <div class="panel result-panel" id="result-panel" aria-labelledby="result-title">
+          <div class="result-head"><p class="eyebrow" id="result-title">ANALYSIS OUTPUT</p><span id="status" class="badge" role="status">Ready</span></div>
+          <div id="result"><div class="empty"><span class="empty-icon" aria-hidden="true">◎</span><h3>Your results appear here</h3><p>Run a scenario to compare claimed output with the ideal limit and see which checks apply.</p></div></div>
+
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="examples" aria-labelledby="examples-title">
+      <div class="section-intro"><p class="eyebrow">02 / EXPERIMENT</p><h2 id="examples-title">Try a worked example</h2><p>Load an example, change the inputs, and see what happens.</p></div>
+      <div id="example-list" class="examples"></div>
+    </section>
+
+    <section class="section method" id="method" aria-labelledby="method-title">
+      <div class="section-intro"><p class="eyebrow">03 / UNDERSTAND</p><h2 id="method-title">How the tester decides</h2></div>
+      <div class="method-grid"><article><span>01</span><h3>Define the boundary</h3><p>Identify what supplies energy, what receives it, and the useful output being claimed.</p></article>
+        <article><span>02</span><h3>Calculate the limit</h3><p>The Python engine applies the selected model and checks energy or entropy balances when the data support them.</p></article>
+        <article><span>03</span><h3>Interpret the verdict</h3><p>A claim below the ceiling is feasible within the model. A claim that breaks a balance or exceeds its limit is rejected. Enter the required values to evaluate a claim.</p></article></div>
+    </section>
+  </main>
+  <footer><span class="brand"><span class="mark">◈</span>Thermo<span>Lab</span></span><span>CL 202 · Thermodynamic Feasibility Tester</span></footer>
+</body>
+</html>

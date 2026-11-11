@@ -1,0 +1,11 @@
+{
+  "title": "Assignment 1 Modified gas and wax properties (X=100)",
+  "model": "property_change",
+  "T1_K": 450.0,
+  "T2_K": 350,
+  "cp_model": "linear",
+  "a": 1.0,
+  "b": 0.0005,
+  "phase_delta_h_kj_kg": 250,
+  "phase_delta_s_kj_kg_k": 0.8
+}

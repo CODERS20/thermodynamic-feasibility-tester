@@ -1,0 +1,23 @@
+{
+  "title": "Assignment 1 Base (X=100)",
+  "model": "finite_stream_engine",
+  "description": "GPU waste heat to coffee-maker electricity. Both outlet states and the work claim are linked by the First Law. The effective-temperature reference uses the claim-derived sink outlet.",
+  "hot_stream": {
+    "name": "GPU cooling water",
+    "mass_flow_kg_s": 0.30000000000000004,
+    "T_in_K": 330.8969725940089,
+    "T_out_K": 318.15,
+    "cp_model": "constant",
+    "cp_kj_kg_k": 4.184
+  },
+  "cold_stream": {
+    "name": "Heat-rejection tap water",
+    "mass_flow_kg_s": 0.6,
+    "T_in_K": 298.15,
+    "T_out_K": 304.12520198327894,
+    "cp_model": "constant",
+    "cp_kj_kg_k": 4.184
+  },
+  "W_out_kw": 0.9998529411764707,
+  "apply_effective_temperature_limit": true
+}

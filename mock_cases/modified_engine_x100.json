@@ -1,0 +1,9 @@
+{
+  "title": "Assignment 1 Modified equivalent-temperature engine (X=100)",
+  "model": "fixed_reservoir_engine",
+  "description": "Hot temperature is an equivalent entropy-transfer temperature for the cooling gas. Cold temperature is isothermal paraffin melting. Bound applies during melting or with sustained heat rejection at that temperature.",
+  "T_hot_K": 398.25507422474885,
+  "T_cold_K": 312.5,
+  "Q_hot_kw": 12.0,
+  "W_out_kw": 1.3331372549019609
+}
