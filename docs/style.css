@@ -103,6 +103,11 @@
 /* ----------------------------------------------------------------- base */
 *, *::before, *::after { box-sizing: border-box; }
 
+/* The wizard shows one step at a time by setting the hidden attribute. Any
+   author rule with an explicit display beats the user-agent [hidden] rule, so
+   state it once, loudly, or every step renders at the same time. */
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 
 body {
@@ -199,20 +204,27 @@ sub { font-size: .72em; }
 /* ----------------------------------------------------------------- hero */
 main { max-width: var(--page); margin: 0 auto; padding: 0 var(--s4); }
 
+/* Compact band. The tester is the product, so it has to be on screen without
+   scrolling; the hero introduces it rather than filling the viewport. */
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-  gap: var(--s7);
-  align-items: center;
-  padding: var(--s8) 0 var(--s7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s5) 0 var(--s4);
 }
 
-.hero-copy { display: flex; flex-direction: column; gap: var(--s4); }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.lead-note { font-size: var(--t-13); color: var(--text-3); max-width: 58ch; }
+
+.hero-copy { display: flex; flex-direction: column; gap: var(--s3); max-width: 62ch; }
 
 h1 {
-  font-size: var(--t-display);
-  line-height: 1.04;
-  letter-spacing: -.035em;
+  font-size: clamp(30px, 3.8vw, 42px);
+  line-height: 1.06;
+  letter-spacing: -.032em;
 }
 
 .lead {
@@ -225,9 +237,9 @@ h1 {
 .hero-specs {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s5);
-  margin: var(--s2) 0 0;
-  padding-top: var(--s4);
+  gap: var(--s6);
+  margin: 0;
+  padding-top: var(--s3);
   border-top: 1px solid var(--hairline-soft);
 }
 .hero-specs div { display: flex; flex-direction: column; gap: 2px; }
@@ -240,9 +252,12 @@ h1 {
 }
 .hero-specs dd { margin: 0; font-size: var(--t-13); color: var(--text-1); }
 
-.hero-figure { margin: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.chart-figure { margin: 0; display: flex; flex-direction: column; gap: var(--s3); }
 
 .hero-chart {
+  max-width: 860px;
+  margin: 0 auto;
+  width: 100%;
   background: var(--surface);
   border: 1px solid var(--hairline-soft);
   border-radius: var(--r-lg);
@@ -253,7 +268,7 @@ h1 {
   gap: var(--s5);
 }
 
-.chart-source { font-size: var(--t-12); color: var(--text-3); line-height: 1.5; }
+.chart-source { font-size: var(--t-12); color: var(--text-3); line-height: 1.5; max-width: 70ch; margin: 0 auto; text-align: center; }
 
 /* ---------------------------------------------------------------- chart */
 .chart { display: block; width: 100%; height: auto; }
@@ -264,6 +279,7 @@ h1 {
   color: var(--text-1);
   letter-spacing: -.01em;
 }
+.chart-title + .chart-note::before { content: "·"; margin: 0 6px; color: var(--text-3); }
 .chart-note { font-size: var(--t-11); color: var(--text-3); }
 .axis { stroke: var(--text-3); stroke-opacity: .4; stroke-width: 1; fill: none; }
 .tick { stroke: var(--text-3); stroke-opacity: .4; stroke-width: 1; }
@@ -293,6 +309,7 @@ h1 {
 
 /* -------------------------------------------------------------- section */
 .section { padding: var(--s7) 0; border-top: 1px solid var(--hairline-soft); }
+#workbench { border-top: 0; padding-top: 0; padding-bottom: var(--s6); }
 
 .section-intro {
   display: flex;
@@ -320,7 +337,8 @@ h1 {
 }
 
 .input-panel { padding: var(--s5); }
-.result-panel { position: sticky; top: 78px; overflow: hidden; }
+.result-panel { position: sticky; top: 70px; overflow: hidden; min-height: 320px; display: flex; flex-direction: column; }
+.result-panel #result { flex: 1; }
 
 /* --------------------------------------------------------------- wizard */
 .wizard { display: flex; flex-direction: column; gap: var(--s5); }
@@ -433,24 +451,33 @@ h1 {
 
 /* ---------------------------------------------------------- review step */
 .review { display: flex; flex-direction: column; gap: var(--s2); }
+/* A definition list: the label and its value belong on the same row, so lay
+   the dt/dd pairs out as two columns rather than stacking every child. */
 .review-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin: 0;
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
   overflow: hidden;
 }
-.review-list > * {
+.review-list dt,
+.review-list dd {
+  margin: 0;
+  padding: 9px var(--s4);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--hairline-soft);
+  min-height: 42px;
   display: flex;
   align-items: center;
-  gap: var(--s3);
-  padding: 10px var(--s4);
-  border-bottom: 1px solid var(--hairline-soft);
-  background: var(--surface-2);
 }
-.review-list > *:last-child { border-bottom: 0; }
-.review-text { flex: 1; min-width: 0; font-size: var(--t-13); color: var(--text-2); }
-.review-value { font-size: var(--t-13); font-weight: 600; color: var(--text-1); }
+.review-list dt { font-size: var(--t-13); color: var(--text-2); }
+.review-list dd { justify-content: flex-end; gap: var(--s3); }
+.review-list > :nth-last-child(-n + 2) { border-bottom: 0; }
+.review-text { font-size: var(--t-13); font-weight: 600; color: var(--text-1); text-align: right; }
+.review-text.muted { font-weight: 500; color: var(--text-3); font-style: italic; }
+.review-list .quiet { padding: 5px 11px; font-size: var(--t-12); }
 
 /* -------------------------------------------------------------- buttons */
 .actions { display: flex; align-items: center; gap: var(--s2); }
@@ -585,7 +612,8 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .metric b { font-size: var(--t-20); font-weight: 600; letter-spacing: -.025em; }
 
 .comparison { display: flex; flex-direction: column; gap: var(--s3); }
-.bar-row { display: flex; flex-direction: column; gap: 5px; font-size: var(--t-12); color: var(--text-2); }
+.bar-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px var(--s3); font-size: var(--t-12); color: var(--text-2); }
+.bar-row .track { grid-column: 1 / -1; }
 .bar-row > div { display: flex; justify-content: space-between; gap: var(--s3); }
 .bar-row b { font-weight: 600; color: var(--text-1); }
 .track { height: 6px; border-radius: 999px; background: var(--surface-sunken); overflow: hidden; }

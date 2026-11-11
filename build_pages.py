@@ -6,7 +6,9 @@ the moment a module was added. The worker now reads the manifest this script
 writes, so there is one list and it cannot go stale.
 """
 
+import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -43,6 +45,19 @@ def build(output=None):
 
     for name in ASSETS:
         shutil.copyfile(ROOT / "website" / "dist" / name, output / name)
+
+    # The worker is requested with a cache-busting query. Hand-maintaining that
+    # string meant a fixed worker could sit on the server while browsers kept
+    # serving the cached old one from the unchanged URL. Derive it from the
+    # worker's own contents so it changes exactly when the worker does.
+    worker = (output / "engine-worker.js").read_bytes()
+    stamp = hashlib.sha256(worker).hexdigest()[:12]
+    page = output / "app.js"
+    source = page.read_text(encoding="utf-8")
+    rewritten, count = re.subn(r'engine-worker\.js\?v=[^"\']*', f"engine-worker.js?v={stamp}", source)
+    if not count:
+        raise ValueError("app.js no longer requests engine-worker.js with a ?v= query to stamp.")
+    page.write_text(rewritten, encoding="utf-8")
 
     for path in MODULES:
         source = ROOT / path

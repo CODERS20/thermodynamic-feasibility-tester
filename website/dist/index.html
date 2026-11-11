@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="description" content="Test any useful-work claim against the First and Second Laws with the CL 202 Python engine.">
   <title>ThermoLab | Feasibility Tester</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%97%88%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
   <script defer src="app.js?v=guided-1"></script>
 </head>
@@ -15,6 +16,7 @@
       <a class="brand" href="#top" aria-label="ThermoLab home"><span class="mark" aria-hidden="true">◈</span>Thermo<span>Lab</span></a>
       <nav aria-label="Sections">
         <a href="#workbench">Tester</a>
+        <a href="#validation">Validation</a>
         <a href="#method">Method</a>
       </nav>
       <span class="course">CL&nbsp;202</span>
@@ -28,24 +30,17 @@
         <h1 id="title">Could it work?</h1>
         <p class="lead">Answer a few questions about any proposed energy conversion. The engine resolves its
           reversible ceiling, closes the energy and entropy balances, and returns a verdict with every number shown.</p>
-        <dl class="hero-specs">
-          <div><dt>Engine</dt><dd>Local Python · no network</dd></div>
-          <div><dt>Checks</dt><dd>First Law · Clausius · Lost work</dd></div>
-          <div><dt>Output</dt><dd>S<sub>gen</sub>, W<sub>lost</sub>, η<sub>II</sub></dd></div>
-        </dl>
+        <p class="lead-note">Start from the energy source below. Each answer narrows the model until the engine has what it needs.</p>
       </div>
-      <figure class="hero-figure">
-        <div class="hero-chart" id="hero-chart"></div>
-        <figcaption class="chart-source">Computed by this engine for every roll-number suffix in the two CL&nbsp;202 coffee assignments.</figcaption>
-      </figure>
+      <dl class="hero-specs">
+        <div><dt>Engine</dt><dd>Local Python · no network</dd></div>
+        <div><dt>Checks</dt><dd>First Law · Clausius · Lost work</dd></div>
+        <div><dt>Output</dt><dd>S<sub>gen</sub>, W<sub>lost</sub>, η<sub>II</sub></dd></div>
+      </dl>
     </section>
 
     <section id="workbench" class="section" aria-labelledby="work-title">
-      <div class="section-intro">
-        <p class="eyebrow">01 — Analyse</p>
-        <h2 id="work-title">Feasibility tester</h2>
-        <p>Start from the energy source. Each answer narrows the model until the engine has what it needs.</p>
-      </div>
+      <h2 id="work-title" class="visually-hidden">Feasibility tester</h2>
       <div class="work-grid">
         <section class="panel input-panel" aria-label="Guided input">
           <form id="model-form" class="wizard">
@@ -87,9 +82,23 @@
       </div>
     </section>
 
+    <section class="section" id="validation" aria-labelledby="validation-title">
+      <div class="section-intro">
+        <p class="eyebrow">02 — Validate</p>
+        <h2 id="validation-title">Checked against both assignments</h2>
+        <p>Claimed output against the reversible ceiling for every roll-number suffix, computed by this
+          engine. The markers are where each assignment crosses its limit.</p>
+      </div>
+      <figure class="chart-figure">
+        <div class="hero-chart" id="hero-chart"></div>
+        <figcaption class="chart-source">Base passes below X&nbsp;=&nbsp;291 and fails above it; Modified is
+          infeasible below X&nbsp;=&nbsp;012. Both lines come straight from the engine.</figcaption>
+      </figure>
+    </section>
+
     <section class="section method" id="method" aria-labelledby="method-title">
       <div class="section-intro">
-        <p class="eyebrow">02 — Understand</p>
+        <p class="eyebrow">03 — Understand</p>
         <h2 id="method-title">How the verdict is reached</h2>
         <p>Every energy source reduces to the same three quantities, then one shared balance decides the outcome.</p>
       </div>
