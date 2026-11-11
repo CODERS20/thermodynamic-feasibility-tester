@@ -28,9 +28,10 @@ self.onmessage = async ({data}) => {
     } finally {
       solve.destroy();
     }
-  } catch {
+  } catch (error) {
+    console.error(error);
     self.postMessage({id: data.id, result: {
-      error: "The Python engine could not load. Check your internet connection and try again.",
+      error: "The Python engine could not load. " + String(error.message || error).slice(0, 1000),
     }});
   }
 };
