@@ -1,0 +1,12 @@
+{
+  "modules": [
+    "website/__init__.py",
+    "website/dist/__init__.py",
+    "thermodynamic_feasibility_tester_MASTER.py",
+    "feasibility_tester.py",
+    "run_mock_assignments.py",
+    "scenario_input.py",
+    "website/local_scenarios.py",
+    "website/dist/solver.py"
+  ]
+}

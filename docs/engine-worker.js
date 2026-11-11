@@ -6,16 +6,23 @@ async function startEngine() {
   importScripts(indexURL + "pyodide.js");
   phase = "Python initialization";
   const python = await loadPyodide({ indexURL });
-  const modules = [
-    "thermodynamic_feasibility_tester_MASTER.py", "run_mock_assignments.py", "scenario_input.py",
-    "website/__init__.py", "website/local_scenarios.py", "website/dist/__init__.py", "website/dist/solver.py",
-  ];
+  /* build_pages.py writes this manifest, so the browser build can never fall
+     behind the module list the solver actually imports. */
+  phase = "module manifest";
+  const manifestResponse = await fetch("./python/manifest.json");
+  if (!manifestResponse.ok) throw new Error("Module manifest failed to load.");
+  const modules = (await manifestResponse.json()).modules;
+  if (!Array.isArray(modules) || !modules.length) throw new Error("Module manifest is empty.");
+
   const sourceRoot = "/home/pyodide/";
-  python.FS.mkdirTree(sourceRoot + "website/dist");
+  for (const path of modules) {
+    const slash = path.lastIndexOf("/");
+    if (slash > 0) python.FS.mkdirTree(sourceRoot + path.slice(0, slash));
+  }
   phase = "source loading";
   await Promise.all(modules.map(async (path) => {
     const response = await fetch("./python/" + path);
-    if (!response.ok) throw new Error("Python source failed to load.");
+    if (!response.ok) throw new Error(`Python source failed to load: ${path}`);
     python.FS.writeFile(sourceRoot + path, await response.text());
   }));
   phase = "solver import";
