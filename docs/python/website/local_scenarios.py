@@ -13,7 +13,13 @@ OUTPUT = (
     r"(?:claims?\s+to\s+(?:produce|generate|deliver)|"
     r"claims?\s+(?:an?\s+)?(?:electrical\s+)?(?:power\s+)?output\s+of|"
     r"(?:claimed\s+)?electrical\s+(?:power\s+)?output|"
-    r"claimed\s+(?:power|output)|output\s+power)"
+    r"claimed\s+(?:power|output)|output\s+power|"
+    # Common paraphrases. A bare "claims" is safe here because take() refuses
+    # the field outright when two different values match it, so a sentence that
+    # also says "claims 100 kW of heat input" reports an ambiguity rather than
+    # silently picking the wrong number.
+    r"(?:useful\s+)?(?:work|power)\s+output|"
+    r"claims?|produces?|generates?|delivers?)"
 )
 
 
@@ -53,6 +59,17 @@ def extract_case(text, route):
                     pass
 
     take("W_out_kw", OUTPUT, POWER, "power")
+    if not route:
+        # No model matched the wording. Report that plainly instead of failing:
+        # refusing an unsupported scenario is a result, not an error.
+        issues.append(
+            "No supported model matched this description. The offline parser handles walking "
+            "generators, fixed-reservoir heat engines, hot/cold stream recovery, ideal blackbody "
+            "radiation, signed Gibbs-energy reactions and the CL 202 assignments. Switch to "
+            "guided mode to answer the questions one at a time, or restate the scenario with "
+            "labelled quantities."
+        )
+        return None, quotes, values, issues
     if route.startswith("assignment_"):
         take("suffix", r"(?:suffix|\bX)", "", "suffix")
         required = ["suffix"]

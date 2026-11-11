@@ -24,9 +24,10 @@ B. Reusable entropy-balance route
       heat interactions and boundary temperatures.
    4. Closed system: First Law and entropy-generation checks.
 
-C. Supporting property / numerical tools
-   5. Constant Cp, linear Cp(T)=a+bT, user-supplied numerical Cp(T), phase-
-      change temperature, adaptive Simpson integration and bisection.
+C. Supporting property tools
+   5. Constant Cp, linear Cp(T)=a+bT and phase-change temperature.
+      Variable Cp(T) integration and root-finding for implicit states live in
+      feasibility_tester.py, which reaches them from real case input.
 
 D. Ideal resource limits
    6. Mechanical-to-electric conversion from recoverable mechanical power.
@@ -59,9 +60,9 @@ import argparse
 import json
 import math
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 ABS_TOL = 1.0e-8
 REL_TOL = 1.0e-6
@@ -271,66 +272,6 @@ def properties_linear_cp(
     return delta_h, delta_s
 
 
-def _simpson_segment(f: Callable[[float], float], a: float, b: float,
-                     fa: float, fm: float, fb: float) -> float:
-    return (b - a) * (fa + 4.0 * fm + fb) / 6.0
-
-
-def adaptive_simpson(
-    function: Callable[[float], float],
-    lower: float,
-    upper: float,
-    tolerance: float = 1.0e-8,
-    max_depth: int = 18,
-) -> float:
-    """Adaptive Simpson integration for a smooth, finite scalar function."""
-    if lower == upper:
-        return 0.0
-    if upper < lower:
-        return -adaptive_simpson(function, upper, lower, tolerance, max_depth)
-    if tolerance <= 0 or max_depth < 1:
-        raise ThermoInputError("Integration tolerance and maximum depth must be positive.")
-
-    midpoint = 0.5 * (lower + upper)
-    f_lower, f_mid, f_upper = function(lower), function(midpoint), function(upper)
-    whole = _simpson_segment(function, lower, upper, f_lower, f_mid, f_upper)
-
-    def refine(a: float, b: float, fa: float, fm: float, fb: float,
-               estimate: float, tol: float, depth: int) -> float:
-        mid = 0.5 * (a + b)
-        left_mid, right_mid = 0.5 * (a + mid), 0.5 * (mid + b)
-        flm, frm = function(left_mid), function(right_mid)
-        left_est = _simpson_segment(function, a, mid, fa, flm, fm)
-        right_est = _simpson_segment(function, mid, b, fm, frm, fb)
-        delta = left_est + right_est - estimate
-        if depth <= 0 or abs(delta) <= 15.0 * tol:
-            return left_est + right_est + delta / 15.0
-        return (
-            refine(a, mid, fa, flm, fm, left_est, tol / 2.0, depth - 1)
-            + refine(mid, b, fm, frm, fb, right_est, tol / 2.0, depth - 1)
-        )
-
-    return refine(lower, upper, f_lower, f_mid, f_upper, whole, tolerance, max_depth)
-
-
-def properties_numerical(
-    T1: float,
-    T2: float,
-    cp_function: Callable[[float], float],
-) -> Tuple[float, float]:
-    """Calculate delta_h=integral(Cp dT), delta_s=integral(Cp/T dT)."""
-    T1 = positive_temperature(T1, "T1")
-    T2 = positive_temperature(T2, "T2")
-
-    def cp_checked(T: float) -> float:
-        cp = positive(cp_function(T), f"Cp({T:g} K)")
-        return cp
-
-    delta_h = adaptive_simpson(cp_checked, T1, T2)
-    delta_s = adaptive_simpson(lambda T: cp_checked(T) / T, T1, T2)
-    return delta_h, delta_s
-
-
 def effective_temperature(delta_h: float, delta_s: float) -> float:
     """Return |Delta h|/|Delta s|; this is an equivalent descriptor, not magic Carnot data."""
     dh, ds = number(delta_h, "Delta h"), number(delta_s, "Delta s")
@@ -345,47 +286,6 @@ def phase_change_temperature(delta_h: float, delta_s: float) -> float:
     if abs(ds) <= ABS_TOL:
         raise ThermoInputError("Phase-change Delta s must be non-zero.")
     return positive_temperature(dh / ds, "Phase-change temperature")
-
-
-def solve_temperature_bisection(
-    target_delta_h: float,
-    reference_temperature: float,
-    lower_temperature: float,
-    upper_temperature: float,
-    cp_function: Callable[[float], float],
-    tolerance: float = 1.0e-7,
-    max_iterations: int = 150,
-) -> float:
-    """Solve integral(Tref to T) Cp(T)dT = target_delta_h with bracketing."""
-    target = number(target_delta_h, "Target Delta h")
-    reference = positive_temperature(reference_temperature, "Reference temperature")
-    low = positive_temperature(lower_temperature, "Lower temperature bound")
-    high = positive_temperature(upper_temperature, "Upper temperature bound")
-    if high <= low:
-        raise ThermoInputError("Upper temperature bound must exceed lower bound.")
-
-    def residual(T: float) -> float:
-        dh, _ = properties_numerical(reference, T, cp_function)
-        return dh - target
-
-    f_low, f_high = residual(low), residual(high)
-    if abs(f_low) <= tolerance:
-        return low
-    if abs(f_high) <= tolerance:
-        return high
-    if f_low * f_high > 0:
-        raise ThermoInputError("Bisection interval does not bracket a root.")
-
-    for _ in range(max_iterations):
-        mid = 0.5 * (low + high)
-        f_mid = residual(mid)
-        if abs(f_mid) <= tolerance or high - low <= tolerance:
-            return mid
-        if f_low * f_mid <= 0:
-            high, f_high = mid, f_mid
-        else:
-            low, f_low = mid, f_mid
-    raise ThermoInputError("Bisection did not converge within the iteration limit.")
 
 
 def stream_properties(stream: Dict[str, Any]) -> Dict[str, float]:
@@ -562,6 +462,164 @@ def closed_system_entropy_generation(
         tb = positive_temperature(item["boundary_temperature_K"], "Heat boundary temperature")
         transfer += q / tb
     return delta_s - transfer
+
+
+# ============================================================================
+# 3b. Universal feasibility pipeline (FLOWCHART: Decision 4 -> Decision 5)
+# ============================================================================
+
+@dataclass
+class DomainSupply:
+    """The contract every primary energy domain fulfils.
+
+    Each domain branch — thermal fluid, chemical reaction, mechanical/electrical
+    work, solar radiation — reduces its own particular inputs to one common
+    triple. A single shared tail then performs the First Law check, the
+    universal entropy-generation balance and the Clausius classification, so
+    every domain is judged by identical logic rather than bespoke per-route
+    reasoning.
+
+        E_in_kw           energy rate supplied to the converter          [kW]
+        delta_S_sys_kw_k  entropy change of the system/working fluid   [kW/K]
+        S_in_kw_k         entropy rate carried in alongside E_in       [kW/K]
+
+    ``S_out_kw_k`` generalises the flowchart. The chart assumes the sink is an
+    infinite reservoir fixed at T_0, giving S_out = Q_out / T_0. When a branch
+    knows its sink is finite — a cold water stream that measurably warms, for
+    instance — it supplies the true entropy rate instead. Leaving it None
+    reproduces the chart exactly.
+    """
+
+    E_in_kw: float
+    delta_S_sys_kw_k: float = 0.0
+    S_in_kw_k: float = 0.0
+    S_out_kw_k: Optional[float] = None
+    basis: str = ""
+    assumptions: List[str] = field(default_factory=list)
+
+
+@dataclass
+class UniversalResult:
+    """Outcome of the shared tail: balances, Clausius verdict, lost work."""
+
+    E_in_kw: float
+    W_actual_kw: float
+    Q_out_kw: float
+    first_law: BalanceCheck
+    delta_S_sys_kw_k: float
+    S_in_kw_k: float
+    S_out_kw_k: Optional[float]
+    S_out_basis: str
+    S_gen_kw_k: Optional[float]
+    W_lost_kw: Optional[float]
+    W_rev_kw: Optional[float]
+    eta_I: Optional[float]
+    eta_II: Optional[float]
+    eta_rev: Optional[float]
+    T_0_K: float
+    classification: str
+
+    def calculations(self) -> Dict[str, Any]:
+        return {
+            "E_in_kw": self.E_in_kw,
+            "W_actual_kw": self.W_actual_kw,
+            "Q_out_kw": self.Q_out_kw,
+            "delta_S_sys_kw_per_k": self.delta_S_sys_kw_k,
+            "S_in_kw_per_k": self.S_in_kw_k,
+            "S_out_kw_per_k": self.S_out_kw_k,
+            "S_out_basis": self.S_out_basis,
+            "S_gen_kw_per_k": self.S_gen_kw_k,
+            "lost_work_kw": self.W_lost_kw,
+            "reversible_work_kw": self.W_rev_kw,
+            "first_law_efficiency_fraction": self.eta_I,
+            "second_law_efficiency_fraction": self.eta_II,
+            "reversible_efficiency_reference_fraction": self.eta_rev,
+            "ambient_sink_temperature_K": self.T_0_K,
+        }
+
+    def checks(self) -> Dict[str, Any]:
+        second_law = "NOT EVALUATED"
+        if self.S_gen_kw_k is not None:
+            second_law = "FAIL" if entropy_generation_is_negative(self.S_gen_kw_k) else "PASS"
+        return {
+            "first_law": asdict(self.first_law),
+            "second_law": second_law,
+            "process_classification": self.classification,
+        }
+
+
+def universal_assessment(
+    supply: DomainSupply,
+    W_actual_kw: float,
+    T_0_K: float,
+    eta_rev: Optional[float] = None,
+) -> UniversalResult:
+    """Run the shared tail every domain funnels into.
+
+    Decision 4  Q_out = E_in - W_actual; Q_out < 0 rejects on the First Law.
+    Entropy     S_out = Q_out / T_0 unless the branch supplied its own.
+    Universal   S_gen = delta_S_sys - S_in + S_out.
+    Decision 5  Clausius: S_gen < 0 impossible, = 0 reversible, > 0 feasible.
+    Lost work   W_lost = T_0 * S_gen;  eta_II = W_actual / (W_actual + W_lost).
+    """
+    e_in = number(supply.E_in_kw, "E_in")
+    work = number(W_actual_kw, "Claimed actual work")
+    t0 = positive_temperature(T_0_K, "Ambient sink temperature")
+    if e_in <= 0.0:
+        raise ThermoInputError("E_in must be greater than zero to assess a work claim.")
+    if work < 0.0:
+        raise ThermoInputError("Claimed actual work cannot be negative.")
+
+    q_out = e_in - work
+    scale = max(abs(e_in), abs(work), 1.0)
+    first_law_passed = q_out >= -(ABS_TOL + REL_TOL * scale)
+    first_law = BalanceCheck(
+        q_out,
+        first_law_passed,
+        "Q_out = E_in - W_actual >= 0",
+        "kW",
+    )
+
+    eta_i: Optional[float] = work / e_in if e_in > 0 else None
+
+    if not first_law_passed:
+        return UniversalResult(
+            E_in_kw=e_in, W_actual_kw=work, Q_out_kw=q_out, first_law=first_law,
+            delta_S_sys_kw_k=supply.delta_S_sys_kw_k, S_in_kw_k=supply.S_in_kw_k,
+            S_out_kw_k=None, S_out_basis="Not evaluated: the First Law check failed.",
+            S_gen_kw_k=None, W_lost_kw=None, W_rev_kw=None,
+            eta_I=eta_i, eta_II=None, eta_rev=eta_rev, T_0_K=t0,
+            classification="IMPOSSIBLE — FIRST LAW VIOLATION",
+        )
+
+    q_out = max(0.0, q_out)
+    if supply.S_out_kw_k is None:
+        s_out = q_out / t0
+        s_out_basis = (
+            "Rejected heat leaves to an infinite ambient reservoir at T_0: S_out = Q_out / T_0."
+        )
+    else:
+        s_out = number(supply.S_out_kw_k, "Entropy rate leaving")
+        s_out_basis = (
+            "The branch supplied the true entropy rate of a finite sink "
+            "instead of assuming an infinite reservoir at T_0."
+        )
+
+    s_gen = supply.delta_S_sys_kw_k - supply.S_in_kw_k + s_out
+    w_lost = t0 * s_gen
+    w_rev = work + w_lost
+    eta_ii: Optional[float] = None
+    if w_rev > ABS_TOL:
+        eta_ii = work / w_rev
+
+    return UniversalResult(
+        E_in_kw=e_in, W_actual_kw=work, Q_out_kw=q_out, first_law=first_law,
+        delta_S_sys_kw_k=supply.delta_S_sys_kw_k, S_in_kw_k=supply.S_in_kw_k,
+        S_out_kw_k=s_out, S_out_basis=s_out_basis,
+        S_gen_kw_k=s_gen, W_lost_kw=w_lost, W_rev_kw=w_rev,
+        eta_I=eta_i, eta_II=eta_ii, eta_rev=eta_rev, T_0_K=t0,
+        classification=process_classification(s_gen, first_law),
+    )
 
 
 # ============================================================================
@@ -1026,14 +1084,63 @@ def analyse_solar_blackbody(case: Dict[str, Any]) -> CaseResult:
     area_m2 = positive(inputs["collection_area_m2"], "Collection area")
     incident_kw = number((inputs["irradiance_W_m2"] / 1000) * area_m2, "Incident power (kW)")
     ratio = ambient_K / source_K
+
+    # Radiation is treated as heat arriving from a reservoir at the source
+    # temperature, carrying entropy S_in = Q_sun / T_sun. That is what lets the
+    # solar route take part in the universal entropy balance and the Clausius
+    # check at all; a bare exergy fraction cannot be placed in an entropy
+    # balance. The Petela-Landsberg radiation-exergy fraction is still reported
+    # below as a stricter reference, but it does not set the verdict.
+    carnot_fraction = 1.0 - ratio
+    reversible_kw = incident_kw * carnot_fraction
+    supply = DomainSupply(
+        E_in_kw=incident_kw,
+        delta_S_sys_kw_k=0.0,
+        S_in_kw_k=incident_kw / source_K,
+        basis="radiation as heat from a reservoir at T_source",
+    )
+    assessed = universal_assessment(supply, inputs["W_out_kw"], ambient_K, eta_rev=carnot_fraction)
+
     # Factored form of 1 - (4/3)r + (1/3)r**4 avoids cancellation near r=1.
     exergy_fraction = (1 - ratio)**2 * (ratio**2 + 2 * ratio + 3) / 3
-    return resource_result(case, inputs, {
+    calculations = {
         "incident_radiation_kw": incident_kw,
-        "petela_landsberg_exergy_fraction": exergy_fraction,
         "claimed_electrical_output_kw": inputs["W_out_kw"],
-        "reversible_power_limit_kw": incident_kw * exergy_fraction,
-    }, assumptions)
+        "reversible_power_limit_kw": reversible_kw,
+        "reversible_efficiency_fraction": carnot_fraction,
+        "petela_landsberg_exergy_fraction": exergy_fraction,
+        "petela_radiation_exergy_limit_kw": incident_kw * exergy_fraction,
+        "petela_note": (
+            "Radiation-exergy reference only. It is a stricter bound than the reservoir "
+            "model and is not used for the verdict."
+        ),
+    }
+    calculations.update(assessed.calculations())
+    checks = dict(assessed.checks())
+    checks["performance_limit"] = (
+        "PASS" if inputs["W_out_kw"] <= reversible_kw + ABS_TOL + REL_TOL * max(reversible_kw, 1.0) else "FAIL"
+    )
+    return CaseResult(
+        title=case.get("title", "Solar radiative work claim"),
+        model="solar_blackbody",
+        description=case.get("description", ""),
+        inputs=inputs,
+        calculations=calculations,
+        checks=checks,
+        verdict=make_verdict(
+            first_law=assessed.first_law,
+            sgen=assessed.S_gen_kw_k,
+            work_out=inputs["W_out_kw"],
+            work_limit=reversible_kw,
+            model_limit_valid=True,
+            work_limit_tolerance=1e-9 * reversible_kw,
+        ),
+        assumptions=assumptions + [
+            "Incoming radiation is modelled as heat from a reservoir at T_source, "
+            "so its entropy flux is Q_sun / T_sun.",
+            "Waste heat is rejected to the ambient environment at T_ambient.",
+        ],
+    )
 
 
 def analyse_reaction_gibbs(case: Dict[str, Any]) -> CaseResult:
@@ -1059,12 +1166,69 @@ def analyse_reaction_gibbs(case: Dict[str, Any]) -> CaseResult:
     rejection = None
     if delta_g > 0:
         rejection = "The specified forward reaction requires external work input at the stated conditions."
-    return resource_result(case, inputs, {
+    calculations = {
         "claimed_electrical_output_kw": claimed_kw,
         "signed_reversible_nonexpansion_work_kw": signed_limit_kw,
         "minimum_external_work_input_kw": max(0.0, -signed_limit_kw),
         "reversible_power_limit_kw": max(0.0, signed_limit_kw),
-    }, assumptions, rejection=rejection)
+    }
+
+    # Supplying the reaction enthalpy as well as its Gibbs energy closes the
+    # entropy balance: Delta S_rxn = (Delta H - Delta G) / T, the reaction
+    # enthalpy sets E_in, and the chemical potential is stored internally so
+    # no entropy crosses the boundary with it (S_in = 0).
+    delta_h = case.get("delta_H_kj_per_mol_rxn")
+    assessed = None
+    if delta_h is not None and rejection is None:
+        delta_h = resource_number(case, "delta_H_kj_per_mol_rxn", minimum=None)
+        t_ambient = positive_temperature(
+            case.get("T_ambient_K", 298.15), "Ambient temperature")
+        inputs["delta_H_kj_per_mol_rxn"] = delta_h
+        inputs["T_ambient_K"] = t_ambient
+        delta_s_rxn = (delta_h - delta_g) / t_ambient
+        supply = DomainSupply(
+            E_in_kw=abs(delta_h) * rate,
+            delta_S_sys_kw_k=delta_s_rxn * rate,
+            S_in_kw_k=0.0,
+            basis="chemical potential stored internally; S_in = 0",
+        )
+        assessed = universal_assessment(supply, claimed_kw, t_ambient)
+        calculations["delta_S_rxn_kj_per_mol_rxn_k"] = delta_s_rxn
+        calculations.update(assessed.calculations())
+
+    if assessed is None:
+        result = resource_result(case, inputs, calculations, assumptions, rejection=rejection)
+        if rejection is None:
+            result.checks["entropy_balance"] = (
+                "NOT EVALUATED — supply delta_H_kj_per_mol_rxn to close the entropy balance."
+            )
+        return result
+
+    checks = dict(assessed.checks())
+    limit = calculations["reversible_power_limit_kw"]
+    checks["performance_limit"] = (
+        "PASS" if claimed_kw <= limit + ABS_TOL + REL_TOL * max(limit, 1.0) else "FAIL"
+    )
+    return CaseResult(
+        title=case.get("title", "Isothermal reaction work claim"),
+        model="reaction_gibbs",
+        description=case.get("description", ""),
+        inputs=inputs,
+        calculations=calculations,
+        checks=checks,
+        verdict=make_verdict(
+            first_law=assessed.first_law,
+            sgen=assessed.S_gen_kw_k,
+            work_out=claimed_kw,
+            work_limit=limit,
+            model_limit_valid=True,
+            work_limit_tolerance=1e-9 * limit,
+        ),
+        assumptions=assumptions + [
+            "Delta S_rxn is derived from the supplied Delta H and Delta G at the ambient temperature.",
+            "Reaction enthalpy sets the energy input; waste heat leaves at the ambient temperature.",
+        ],
+    )
 
 
 def analyse_unsupported_domain(case: Dict[str, Any]) -> CaseResult:
@@ -1209,18 +1373,6 @@ def self_test() -> List[str]:
     dh_linear, ds_linear = properties_linear_cp(300.0, 500.0, 4.0, 0.0)
     assert abs(dh - dh_linear) < 1e-10 and abs(ds - ds_linear) < 1e-10
     passed.append("linear-Cp formula and constant-Cp special case")
-
-    # Numerical integral agrees with analytical linear-Cp result.
-    cp_func = lambda T: 1.0 + 0.0005 * T
-    dh_exact, ds_exact = properties_linear_cp(350.0, 500.0, 1.0, 0.0005)
-    dh_num, ds_num = properties_numerical(350.0, 500.0, cp_func)
-    assert abs(dh_num - dh_exact) < 1e-7 and abs(ds_num - ds_exact) < 1e-7
-    passed.append("adaptive Simpson integration vs analytical Cp(T)")
-
-    # Bisection recovers the known endpoint.
-    recovered = solve_temperature_bisection(dh_exact, 350.0, 400.0, 550.0, cp_func)
-    assert abs(recovered - 500.0) < 1e-5
-    passed.append("bracketed bisection temperature solver")
 
     # Fixed-reservoir reference case.
     baseline = analyse_case({"model": "fixed_reservoir_engine", "T_hot_K": 600,
@@ -1582,7 +1734,10 @@ def print_report(result: CaseResult) -> None:
 
 def load_case(path: str) -> Dict[str, Any]:
     try:
-        with open(path, "r", encoding="utf-8") as file:
+        # utf-8-sig also accepts a plain UTF-8 file, and additionally tolerates
+        # the byte-order mark that Windows editors and PowerShell redirection
+        # prepend. Without this a case file saved on Windows fails to parse.
+        with open(path, "r", encoding="utf-8-sig") as file:
             data = json.load(file)
     except FileNotFoundError as exc:
         raise ThermoInputError(f"Input JSON file not found: {path}") from exc
@@ -1653,6 +1808,15 @@ def run_demonstrations() -> None:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    # Verdict strings contain an em dash. A Windows console defaults to a
+    # legacy code page and renders it as a replacement character, so ask for
+    # UTF-8 where the stream supports it.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
     parser = argparse.ArgumentParser(
         description="Thermodynamic Feasibility Tester: structured input, model selection, balances and verdicts."
     )
