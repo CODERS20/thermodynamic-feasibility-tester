@@ -252,60 +252,8 @@ h1 {
 }
 .hero-specs dd { margin: 0; font-size: var(--t-13); color: var(--text-1); }
 
-.chart-figure { margin: 0; display: flex; flex-direction: column; gap: var(--s3); }
 
-.hero-chart {
-  max-width: 860px;
-  margin: 0 auto;
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--hairline-soft);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-1);
-  padding: var(--s5) var(--s5) var(--s4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s5);
-}
 
-.chart-source { font-size: var(--t-12); color: var(--text-3); line-height: 1.5; max-width: 70ch; margin: 0 auto; text-align: center; }
-
-/* ---------------------------------------------------------------- chart */
-.chart { display: block; width: 100%; height: auto; }
-.chart text { font-family: var(--sans); fill: var(--text-3); font-size: 10px; }
-.chart-title {
-  font-size: var(--t-12);
-  font-weight: 600;
-  color: var(--text-1);
-  letter-spacing: -.01em;
-}
-.chart-title + .chart-note::before { content: "·"; margin: 0 6px; color: var(--text-3); }
-.chart-note { font-size: var(--t-11); color: var(--text-3); }
-.axis { stroke: var(--text-3); stroke-opacity: .4; stroke-width: 1; fill: none; }
-.tick { stroke: var(--text-3); stroke-opacity: .4; stroke-width: 1; }
-.axis-caption { fill: var(--text-3); font-size: 10px; }
-.series { fill: none; stroke-linejoin: round; stroke-linecap: round; }
-.series.ceiling { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; }
-.series.claim { stroke: var(--text-2); stroke-width: 2; }
-.marker { stroke: var(--text-3); stroke-opacity: .55; stroke-width: 1; stroke-dasharray: 2 3; }
-.marker.pass { stroke: var(--pass); }
-.marker.fail { stroke: var(--fail); }
-.marker-dot { fill: var(--text-2); }
-.marker-dot.pass { fill: var(--pass); }
-.marker-dot.fail { fill: var(--fail); }
-.mark-label { font-size: 10px; font-weight: 600; fill: var(--text-2); }
-.mark-label.pass { fill: var(--pass); }
-.mark-label.fail { fill: var(--fail); }
-
-.chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2) var(--s4);
-  font-size: var(--t-11);
-  color: var(--text-2);
-}
-.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.chart-legend svg { display: block; }
 
 /* -------------------------------------------------------------- section */
 .section { padding: var(--s7) 0; border-top: 1px solid var(--hairline-soft); }
